@@ -8,70 +8,64 @@ from dateutil import relativedelta
 from PySimpleGUI import PySimpleGUI as sg
 
 
-#Faço essa requisição da API para pegar o ultimo concurso para usar no While
-resultados = []
-url = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/'
-response = requests.get(url)
-response.raise_for_status()
-dados = response.json()
-concurso = dados.get('numero')
-x = True
-i = 1
-
 def obter_resultados_lotofacil():
+    # Faço essa requisição da API para pegar o ultimo concurso para usar no While
+    url = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/'
+    response = requests.get(url)
+    response.raise_for_status()
+    dados = response.json()
+    concurso = dados.get('numero')
     x = True
     i = 1
     resultados = {}
-    
-    
+
     while x == True:
         url = f"https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/{i}"
-        
 
         try:
-            #for numero in range(1,concurso):
-                #anteriores = f'{numero:04}'
+            # for numero in range(1,concurso):
+            # anteriores = f'{numero:04}'
             response = requests.get(url)
             response.raise_for_status()
             dados = response.json()
             if 'error' in dados:
                 print(f"Erro na API: {dados['error']}")
                 return None
-            
-            
-            dezena = f'dezenas{i}' 
-            data =  f'data{i}'         
+
+            dezena = f'dezenas{i}'
+            data = f'data{i}'
             resultados_parcial = {dezena: dados['listaDezenas'], data: dados['dataApuracao']}
             resultados.update(resultados_parcial)
-            
 
-            i+=1
+            i += 1
             if i > concurso:
-                    resultados_final = {'resultados': []}
+                resultados_final = {'resultados': []}
 
-                    num_pares = len([chave for chave in resultados.keys() if chave.startswith('dezena')])
+                num_pares = len([chave for chave in resultados.keys() if chave.startswith('dezena')])
 
-                    for i in range(1, num_pares + 1):
-                        chave_dezena = f'dezenas{i}'
-                        chave_data = f'data{i}'
+                for i in range(1, num_pares + 1):
+                    chave_dezena = f'dezenas{i}'
+                    chave_data = f'data{i}'
 
-                        valor_dezena = resultados.get(chave_dezena)
-                        valor_data = resultados.get(chave_data)
+                    valor_dezena = resultados.get(chave_dezena)
+                    valor_data = resultados.get(chave_data)
 
-                        if valor_dezena is not None and valor_data is not None:
-                            resultados_final['resultados'].append({'dezenas': valor_dezena, 'data': valor_data})
-                   
-                    window["status"].update("Atualização Encerrada!")
-                    return resultados_final
-                    x = False    
+                    if valor_dezena is not None and valor_data is not None:
+                        resultados_final['resultados'].append({'dezenas': valor_dezena, 'data': valor_data})
+
+                window["status"].update("Atualização Encerrada!")
+                return resultados_final
+                x = False
         except requests.exceptions.RequestException as e:
             print(f"Erro na requisição: {e}")
             time.sleep(3)
         continue
 
+
 def gravar_resultados_arquivo(resultados, arquivo):
     with open(arquivo, 'w') as file:
         json.dump(resultados, file)
+
 
 def ler_resultados_arquivo(arquivo):
     if os.path.exists(arquivo):
@@ -95,21 +89,21 @@ def numero_aposta():
     while True:
         event, values = window.read()
 
-        
         if event == sg.WINDOW_CLOSED or event == 'Parar' or len(numeros_aposta) > 15:
             break
         elif event == 'Adicionar':
-                    try:
-                        if values['numero'] not in numeros_aposta:
-                            numeros_aposta.append(values['numero'])
-                            sg.popup('Adicionado!')
-                        else:
-                            print("Número inválido ou já escolhido. Tente novamente.")
-                    except ValueError:
-                        print("Entrada inválida. Digite um número inteiro.")
-    
+            try:
+                if values['numero'] not in numeros_aposta:
+                    numeros_aposta.append(values['numero'])
+                    sg.popup('Adicionado!')
+                else:
+                    print("Número inválido ou já escolhido. Tente novamente.")
+            except ValueError:
+                print("Entrada inválida. Digite um número inteiro.")
+
     window.close()
     return numeros_aposta
+
 
 def excluir_resultados_indesejados(resultados, numeros_aposta):
     resultados_filtrados = []
@@ -136,11 +130,11 @@ def contar_acertos(resultados, numeros_aposta):
             if numero in resultado['dezenas']:
                 contagem_individual[numero] += 1
 
-        #conjunto_igual = set(numeros_aposta) == set(resultado)
-        #if conjunto_igual:
-           # contagem_conjunto[tuple(numeros_aposta)] += 1
+        # conjunto_igual = set(numeros_aposta) == set(resultado)
+        # if conjunto_igual:
+        # contagem_conjunto[tuple(numeros_aposta)] += 1
 
-    #for resultado in resultados:
+        # for resultado in resultados:
         conjunto_igual = set(numeros_aposta) <= set(resultado['dezenas'])
         if conjunto_igual:
             data_sorteio = datetime.strptime(resultado['data'], "%d/%m/%Y")
@@ -148,15 +142,14 @@ def contar_acertos(resultados, numeros_aposta):
             contagem_conjunto[(tuple(numeros_aposta), resultado['data'])] += 1
             contagem_conjunto_semestre[(tuple(numeros_aposta), semestre_ano)] += 1
             contagem_conjunto_total[tuple(numeros_aposta)] += 1
-            
+
             semestre = (data_sorteio.month - 1) // 6 + 1
             semestre_ano_separado = f"{semestre}/{data_sorteio.year}"
 
             contagem_semestre[semestre_ano_separado] += 1
-            
-        
 
     return contagem_individual, contagem_conjunto, contagem_conjunto_total, contagem_conjunto_semestre, contagem_semestre
+
 
 def contar_pares_sorteio(resultados, numeros_aposta, intervalo_meses):
     contagem_pares = Counter()
@@ -165,7 +158,8 @@ def contar_pares_sorteio(resultados, numeros_aposta, intervalo_meses):
         for num2 in numeros_aposta:
             if num1 < num2:
                 for resultado in resultados['resultados']:
-                    if num1 in resultado['dezenas'] and num2 in resultado['dezenas'] and all(num not in resultado['dezenas'] for num in numeros_aposta if num != num1 and num != num2):
+                    if num1 in resultado['dezenas'] and num2 in resultado['dezenas'] and all(
+                            num not in resultado['dezenas'] for num in numeros_aposta if num != num1 and num != num2):
                         data_sorteio = datetime.strptime(resultado['data'], "%d/%m/%Y")
                         mes_ano = f"{data_sorteio.month:02d}/{data_sorteio.year}"
 
